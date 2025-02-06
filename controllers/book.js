@@ -101,25 +101,40 @@ exports.deleteBook = async (req, res) => {
 };
 
 exports.updateBook = async (req, res) => {
-    try {
-      const bookId = req.params.id;  
-      const book = await Book.findById(bookId);
-      if (!book) {
-        return res.status(404).json({ message: "Livre non trouvé" });
-      }
-      const updatedBookData = JSON.parse(req.body.book); 
-      if (req.fileId) {
-        console.log("📸 Nouvelle image reçue, ID :", req.fileId);
-        book.imageId = req.fileId; 
-      }
-  
-      Object.assign(book, updatedBookData);
-      await book.save();
-      res.status(200).json({ message: "Livre mis à jour avec succès", book });
-    } catch (error) {
-      res.status(500).json({ message: "Erreur interne du serveur" });
+    if (!req.params.id) {
+        return res.status(400).json({ message: "ID du livre manquant dans la requête" });
     }
-  };
+
+    if (!req.body || Object.keys(req.body).length === 0) {
+        return res.status(400).json({ message: "Données du livre manquantes" });
+    }
+
+    try {
+        const bookId = req.params.id;
+        let book = await Book.findById(bookId);
+        
+        if (!book) {
+            return res.status(404).json({ message: "Livre non trouvé" });
+        }
+        let updatedBookData;
+        try {
+            updatedBookData = typeof req.body.book === "string" ? JSON.parse(req.body.book) : req.body;
+        } catch (error) {
+            return res.status(400).json({ message: "Format des données invalide" });
+        }
+        Object.assign(book, updatedBookData);
+        if (req.file && req.fileId) {
+            book.imageUrl = `http://localhost:4000/api/books/image/${req.fileId}`;
+        } else {
+            console.log("⚠️ Aucune nouvelle image envoyée, conservation de l'ancienne :", book.imageUrl);
+        }
+        await book.save();
+        res.status(200).json({ message: "Livre mis à jour avec succès", book });
+    } catch (error) {
+        res.status(500).json({ message: "Erreur interne du serveur" });
+    }
+};
+
 
   exports.rateBook = async (req, res) => {
     try {

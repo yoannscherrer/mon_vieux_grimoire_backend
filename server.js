@@ -19,6 +19,8 @@ const bookRoutes = require("./routes/book");
 
 app.use("/api/auth", userRoutes);
 app.use("/api/books", bookRoutes);
+console.log("📌 Route `/api/books/:id` pour modification chargée !");
+
 
 
 const PORT = process.env.PORT || 4000;

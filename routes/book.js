@@ -7,7 +7,14 @@ const router = express.Router();
 
 router.post("/", authMiddleware, upload.single("image"), uploadToGridFS, createBook);
 router.post("/:id/rating", authMiddleware, rateBook);
-router.put("/:id", authMiddleware, upload.single("image"), uploadToGridFS, updateBook);
+router.put("/:id", authMiddleware, upload.single("image"), uploadToGridFS, (req, res, next) => {
+    if (!req.file) {
+        req.fileId = null;
+    }
+    next();
+}, updateBook);
+
+
 router.get("/", getAllBooks);
 router.get("/bestrating", getBestRatedBooks);
 router.get("/:id", getBookById);
