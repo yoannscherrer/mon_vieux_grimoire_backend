@@ -1,8 +1,8 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const { GridFSBucket } = require("mongodb"); 
 const upload = require("./config/multer");
+const path = require("path")
 require("dotenv").config();
 
 mongoose.set("strictQuery", false);
@@ -13,6 +13,8 @@ mongoose.connect(process.env.MONGO_URI)
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 
 const userRoutes = require("./routes/user");
 const bookRoutes = require("./routes/book");
@@ -26,13 +28,5 @@ console.log("📌 Route `/api/books/:id` pour modification chargée !");
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`Serveur en marche sur le port ${PORT}`));
 
-const conn = mongoose.connection;
-let gfs;
 
-conn.once("open", () => {
-  gfs = new GridFSBucket(conn.db, { bucketName: "uploads" });
-  console.log("GridFSBucket est prêt !");
-});
-
-
-module.exports = { app, upload, gfs };
+module.exports = { app, upload};

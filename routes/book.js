@@ -1,13 +1,13 @@
 const express = require("express");
-const { createBook, getAllBooks, getBookById, deleteBook, updateBook, rateBook, getBookImage, getBestRatedBooks } = require("../controllers/book");
+const { createBook, getAllBooks, getBookById, deleteBook, updateBook, rateBook, getBookImage, getBestRatedBooks, processImage } = require("../controllers/book");
 const authMiddleware = require("../middlewares/auth");
-const { upload, uploadToGridFS } = require("../config/multer");
+const upload  = require("../config/multer");
 
 const router = express.Router();
 
-router.post("/", authMiddleware, upload.single("image"), uploadToGridFS, createBook);
+router.post("/", authMiddleware, upload.single("image"), processImage, createBook);
 router.post("/:id/rating", authMiddleware, rateBook);
-router.put("/:id", authMiddleware, upload.single("image"), uploadToGridFS, (req, res, next) => {
+router.put("/:id", authMiddleware, upload.single("image"), processImage, (req, res, next) => {
     if (!req.file) {
         req.fileId = null;
     }

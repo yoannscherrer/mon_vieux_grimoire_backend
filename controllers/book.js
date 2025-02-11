@@ -1,13 +1,35 @@
 const mongoose = require("mongoose");
 const Book = require("../models/book");
-const GridFSBucket = require("mongodb").GridFSBucket;
-
 const conn = mongoose.connection;
-let gfs;
+const sharp = require("sharp");
+const fs = require("fs");
+const path = require("path");
 
-conn.once("open", () => {
-  gfs = new GridFSBucket(conn.db, { bucketName: "uploads" });
-});
+exports.processImage = async (req, res, next) => { 
+    if (!req.file) {
+        return next(); // Si pas d'image, on continue sans erreur
+      }
+    
+      const newFilename = `compressed-${Date.now()}.webp`; // On convertit en WebP pour meilleure compression
+      const outputPath = `uploads/${newFilename}`;
+    
+      try {
+        await sharp(req.file.path)
+          .resize(500) // Redimensionne à 500px de largeur
+          .webp({ quality: 80 }) // Compression en WebP qualité 80%
+          .toFile(outputPath);
+    
+        // Supprime l'ancienne image non compressée
+        fs.unlinkSync(req.file.path);
+    
+        req.file.filename = newFilename;
+        req.file.path = outputPath;
+        next();
+      } catch (error) {
+        console.error("❌ Erreur lors du traitement de l’image :", error);
+        return res.status(500).json({ message: "Erreur lors du traitement de l’image" });
+      }
+};
 
 exports.getBookImage = async (req, res) => {
   try {
@@ -28,38 +50,25 @@ exports.getBookImage = async (req, res) => {
 
 exports.createBook = async (req, res) => {
   try {
-    let bookData;
-    if (typeof req.body.book === "string") {
-      bookData = JSON.parse(req.body.book);
-    } else {
-      bookData = req.body;
-    }
-    const { userId, title, author, year, genre, ratings, averageRating } = bookData;
+      const bookData = JSON.parse(req.body.book);
 
-    if (!userId || !title || !author || !year || !genre) {
-      return res.status(400).json({ message: "Données invalides" });
-    }
+      // Vérifie s'il y a une image
+      const fileName = req.file ? req.file.filename : null;
+      const imageUrl = fileName ? `${req.protocol}://${req.get("host")}/uploads/${fileName}` : null;
 
-    const imageId = req.fileId ? new mongoose.Types.ObjectId(req.fileId) : null;
-    const imageUrl = imageId ? `/api/books/image/${imageId}` : null; 
-
-    const newBook = new Book({
-        userId,
-        title,
-        author,
-        year,
-        genre,
-        imageUrl: imageId ? `http://localhost:4000/api/books/image/${imageId}` : null, 
-        ratings: ratings || [],
-        averageRating: averageRating || 0
+      const book = new Book({
+          ...bookData,
+          imageUrl: imageUrl
       });
 
-    await newBook.save();
-    res.status(201).json(newBook);
+      await book.save();
+      res.status(201).json({ message: "Livre ajouté avec succès", book });
   } catch (error) {
-    res.status(500).json({ message: "Erreur interne du serveur" });
+      res.status(500).json({ message: "Erreur interne du serveur", error });
   }
 };
+
+  
 
 exports.getAllBooks = async (req, res) => {
   try {
@@ -101,40 +110,29 @@ exports.deleteBook = async (req, res) => {
 };
 
 exports.updateBook = async (req, res) => {
-    if (!req.params.id) {
-        return res.status(400).json({ message: "ID du livre manquant dans la requête" });
-    }
+  try {
+      const book = await Book.findById(req.params.id);
+      if (!book) return res.status(404).json({ message: "Livre non trouvé" });
 
-    if (!req.body || Object.keys(req.body).length === 0) {
-        return res.status(400).json({ message: "Données du livre manquantes" });
-    }
+      const bookData = req.body.book ? JSON.parse(req.body.book) : req.body;
 
-    try {
-        const bookId = req.params.id;
-        let book = await Book.findById(bookId);
-        
-        if (!book) {
-            return res.status(404).json({ message: "Livre non trouvé" });
-        }
-        let updatedBookData;
-        try {
-            updatedBookData = typeof req.body.book === "string" ? JSON.parse(req.body.book) : req.body;
-        } catch (error) {
-            return res.status(400).json({ message: "Format des données invalide" });
-        }
-        Object.assign(book, updatedBookData);
-        if (req.file && req.fileId) {
-            book.imageUrl = `http://localhost:4000/api/books/image/${req.fileId}`;
-        } else {
-            console.log("⚠️ Aucune nouvelle image envoyée, conservation de l'ancienne :", book.imageUrl);
-        }
-        await book.save();
-        res.status(200).json({ message: "Livre mis à jour avec succès", book });
-    } catch (error) {
-        res.status(500).json({ message: "Erreur interne du serveur" });
-    }
+      if (req.file) {
+          if (book.imageUrl?.startsWith(`${req.protocol}://${req.get("host")}/uploads/`)) {
+              const oldImagePath = path.join(__dirname, "..", book.imageUrl.replace(`${req.protocol}://${req.get("host")}`, ""));
+              if (fs.existsSync(oldImagePath)) fs.unlinkSync(oldImagePath);
+          }
+          book.imageUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+      }
+
+      Object.assign(book, bookData);
+      await book.save();
+
+      res.status(200).json({ message: "Livre mis à jour avec succès", book });
+
+  } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la mise à jour du livre", error });
+  }
 };
-
 
   exports.rateBook = async (req, res) => {
     try {
