@@ -7,19 +7,19 @@ const path = require("path");
 
 exports.processImage = async (req, res, next) => { 
     if (!req.file) {
-        return next(); // Si pas d'image, on continue sans erreur
+        return next(); 
       }
     
-      const newFilename = `compressed-${Date.now()}.webp`; // On convertit en WebP pour meilleure compression
+      const newFilename = `compressed-${Date.now()}.webp`; 
       const outputPath = `uploads/${newFilename}`;
     
       try {
         await sharp(req.file.path)
-          .resize(500) // Redimensionne à 500px de largeur
-          .webp({ quality: 80 }) // Compression en WebP qualité 80%
+          .resize(500) 
+          .webp({ quality: 80 }) 
           .toFile(outputPath);
     
-        // Supprime l'ancienne image non compressée
+        
         fs.unlinkSync(req.file.path);
     
         req.file.filename = newFilename;
@@ -31,28 +31,12 @@ exports.processImage = async (req, res, next) => {
       }
 };
 
-exports.getBookImage = async (req, res) => {
-  try {
-    const imageId = new mongoose.Types.ObjectId(req.params.id);
-
-    const file = await conn.db.collection("uploads.files").findOne({ _id: imageId });
-
-    if (!file) {
-      return res.status(404).json({ message: "Image non trouvée" });
-    }
-    res.set("Content-Type", file.contentType);
-    const readStream = gfs.openDownloadStream(imageId); 
-    readStream.pipe(res);
-  } catch (error) {
-    res.status(500).json({ message: "Erreur lors de la récupération de l'image" });
-  }
-};
 
 exports.createBook = async (req, res) => {
   try {
       const bookData = JSON.parse(req.body.book);
 
-      // Vérifie s'il y a une image
+      
       const fileName = req.file ? req.file.filename : null;
       const imageUrl = fileName ? `${req.protocol}://${req.get("host")}/uploads/${fileName}` : null;
 

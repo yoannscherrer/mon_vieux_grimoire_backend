@@ -18,7 +18,6 @@ router.put("/:id", authMiddleware, upload.single("image"), processImage, (req, r
 router.get("/", getAllBooks);
 router.get("/bestrating", getBestRatedBooks);
 router.get("/:id", getBookById);
-router.get("/image/:id", getBookImage);
 router.delete("/:id", authMiddleware, deleteBook);
 
 module.exports = router;
